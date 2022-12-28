@@ -49,10 +49,17 @@ func solveTask(w http.ResponseWriter, r *http.Request) {
 func solveAllTasks(w http.ResponseWriter, r *http.Request) {
 	tasks := []string{ROTATE, WEIRD_ARRAY, CHECK_SEQ, SEQUENCE}
 	var results []solutions.ResolutionResult
+	ch := make(chan solutions.ResolutionResult)
 
-	for _, t := range tasks {
-		res, _ := selectSover(t).SolveTask()
-		results = append(results, res)
+	for _, task := range tasks {
+		go func(t string) {
+			res, _ := selectSover(t).SolveTask()
+			ch <- res
+		}(task)
+	}
+
+	for range tasks {
+		results = append(results, <-ch)
 	}
 
 	// write result
