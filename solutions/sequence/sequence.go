@@ -1,31 +1,68 @@
 package sequence
 
-/*
-Представлен массив А состоящий из N целых чисел.
-В массиве представлены числа в диапазоне [1..(N + 1)], что значит, что в массиве отсутствует 1 элемент.
+import (
+	"bytes"
+	"encoding/json"
+	"log"
+	"net/http"
 
-Цель - найти этот элемент
+	. "task3/solutions"
+)
 
-Напишите функцию:
+type SequenceSolution struct {
+	TaskName   string
+	DataSource string
+	CheckHost  string
+}
 
-func Solution(A []int) int
+func (s *SequenceSolution) SolveTask() (ResolutionResult, error) {
+	failedResolution := ResolutionResult{0, nil}
+	response, error := http.Get(s.DataSource)
 
-Функция возвращает элемент - который не представлен в массиве.
+	if error != nil {
+		log.Fatalf("Fail to get data for %s; error %s", s.TaskName, error)
+		return failedResolution, error
+	}
 
-Например для массива А:
+	var rawData WeidArrayData
+	error = json.NewDecoder(response.Body).Decode(&rawData)
 
-  A[0] = 2
-  A[1] = 3
-  A[2] = 1
-  A[3] = 5
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, nil
+	}
 
-Функция должна вернуть 4.
+	// parse array
+	var results []int
+	for _, array := range rawData {
+		results = append(results, Solution(array[0]))
+	}
 
-Ограничения:
-N это целое число для диапазона [0..100,000];
-все элементы массива А уникальные;
-каждый элемент А это число в  диапазоне [1..(N + 1)].
-*/
+	log.Printf("results : %v", results)
+
+	resolution := Resolution{
+		UserName: "kmisha",
+		Task:     s.TaskName,
+		Results: &Results{
+			Payload: rawData,
+			Results: results,
+		},
+	}
+
+	// send POST request
+	body, _ := json.Marshal(resolution)
+	postResponse, error := http.Post(s.CheckHost, "application/json", bytes.NewReader(body))
+
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, error
+	}
+
+	var resolutionResults ResolutionResult
+	json.NewDecoder(postResponse.Body).Decode(&resolutionResults)
+
+	return resolutionResults, nil
+}
 
 func Solution(A []int) int {
 	var sumValues, sumSeq int

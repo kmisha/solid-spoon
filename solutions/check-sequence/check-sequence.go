@@ -1,35 +1,66 @@
 package checksequence
 
-/*
-Не пустой массив А состоит из N целых чисел.
-Проверка всех элементов - это последовательность, которая включает все элементы
-от 1 до N и только единожды.
+import (
+	"bytes"
+	"encoding/json"
+	"log"
+	"net/http"
 
-Например массив А:
+	. "task3/solutions"
+)
 
-    A[0] = 4
-    A[1] = 1
-    A[2] = 3
-    A[3] = 2
-
-это последовательность, но такой массив:
-
-    A[0] = 4
-    A[1] = 1
-    A[2] = 3
-это не последовательность, т.к. не хватает 2.
-
-Цель - проверить, что массив А это последовательность.
-
-Напишите функцию:
-func Solution(A []int) int {
+type CheckSequenceSolution struct {
+	TaskName   string
+	DataSource string
+	CheckHost  string
 }
 
-Функция возвращает 1 если массив А это последовательность и 0 если нет.
+func (s *CheckSequenceSolution) SolveTask() (ResolutionResult, error) {
+	failedResolution := ResolutionResult{0, nil}
+	response, error := http.Get(s.DataSource)
 
-N это целое число в диапазоне [1..100,000];
-каждый элемент А находится в диапазоне [1..1,000,000,000].
-*/
+	if error != nil {
+		log.Fatalf("Fail to get data for %s error %s", s.TaskName, error)
+		return failedResolution, error
+	}
+
+	var rawData WeidArrayData
+	err := json.NewDecoder(response.Body).Decode(&rawData)
+
+	if err != nil {
+		log.Fatalf("Fail to parse data: %q", err)
+		return failedResolution, error
+	}
+
+	// parse array
+	var results []int
+	for _, array := range rawData {
+		results = append(results, Solution(array[0]))
+	}
+
+	resolution := Resolution{
+		UserName: "kmisha",
+		Task:     s.TaskName,
+		Results: &Results{
+			Payload: rawData,
+			Results: results,
+		},
+	}
+
+	// send POST request
+	body, _ := json.Marshal(resolution)
+	postResponse, error := http.Post(s.CheckHost, "application/json", bytes.NewReader(body))
+
+	if err != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, error
+	}
+
+	var resolutionResults ResolutionResult
+	json.NewDecoder(postResponse.Body).Decode(&resolutionResults)
+
+	return resolutionResults, nil
+}
 
 func Solution(A []int) int {
 	min := A[0]

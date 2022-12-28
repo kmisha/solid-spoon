@@ -1,26 +1,65 @@
 package weirdarray
 
-/*
-Дан не пустой массив A состоит из N целых чисел.
-Массив содержит некоторое число элементов и каждый элемент может быть парой для другого элемента с таким же значением,
-кроме одного элемента, который не содержит пары. Необходимо найти этот элемент.
+import (
+	"bytes"
+	"encoding/json"
+	"log"
+	"net/http"
+	. "task3/solutions"
+)
 
-К примеру:
+type WeirdArraySolution struct {
+	TaskName   string
+	DataSource string
+	CheckHost  string
+}
 
-  A[0] = 9  A[1] = 3  A[2] = 9
-  A[3] = 3  A[4] = 9  A[5] = 7
-  A[6] = 9
+func (s *WeirdArraySolution) SolveTask() (ResolutionResult, error) {
+	failedResolution := ResolutionResult{0, nil}
+	response, error := http.Get(s.DataSource)
 
-Элементы по индексам 0 и 2 имеют значение 9,
-а элемент по индексу 5 имеет значение 7 и не имеет пары.
+	if error != nil {
+		log.Fatalf("Fail to get data for task %s; error %s", s.TaskName, error)
+		return failedResolution, nil
+	}
 
-Необходимо написать функцию, которая вернет элемент без пары
+	var rawData WeidArrayData
+	error = json.NewDecoder(response.Body).Decode(&rawData)
 
-func Solution(A []int) int
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, error
+	}
 
-N четное число в диапазоне [1..1,000,000];
-каждый элемент массива A целое число в диапазоне [1..1,000,000,000];
-*/
+	// parse array
+	var results []int
+	for _, array := range rawData {
+		results = append(results, Solution(array[0]))
+	}
+
+	resolution := Resolution{
+		UserName: "kmisha",
+		Task:     s.TaskName,
+		Results: &Results{
+			Payload: rawData,
+			Results: results,
+		},
+	}
+
+	// send POST request
+	body, _ := json.Marshal(resolution)
+	postResponse, error := http.Post(s.CheckHost, "application/json", bytes.NewReader(body))
+
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, nil
+	}
+
+	var resolutionResults ResolutionResult
+	json.NewDecoder(postResponse.Body).Decode(&resolutionResults)
+
+	return resolutionResults, nil
+}
 
 func Solution(A []int) int {
 	pairs := make(map[int]int)

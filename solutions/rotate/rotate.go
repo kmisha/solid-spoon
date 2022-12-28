@@ -1,38 +1,77 @@
 package rotate
 
-/*
-Массив A состоит из N целых чисел.
-Ротация массива - это сдвиг каждого элемента вправо, все элементы с конца двигаются в начало. Например, ротация массива
-A = [3, 8, 9, 7, 6] это [6, 3, 8, 9, 7] (все элементы сдвинуты вправо на 1 элемент и 6 сдвигается на первое место).
-Цель - это сдвинуть массив A К раз.
+import (
+	"bytes"
+	"encoding/json"
+	"log"
+	"net/http"
+	"reflect"
 
-Необходимо написать функцию:
+	. "task3/solutions"
+)
 
-func Solution(A []int, K int) []int
+type RotateSolution struct {
+	TaskName   string
+	DataSource string
+	CheckHost  string
+}
 
-К примеру для параметров
+func (s *RotateSolution) SolveTask() (ResolutionResult, error) {
+	failedResolution := ResolutionResult{0, nil}
+	response, error := http.Get(s.DataSource)
 
-    A = [3, 8, 9, 7, 6]
-    K = 3
+	if error != nil {
+		log.Fatalf("Fail to get data for task %s; error %s", s.TaskName, error)
+		return failedResolution, nil
+	}
 
-функция должна вернуть [9, 7, 6, 3, 8]. Необходимо сделать 3 ротации:
+	var rawData RevertData
+	error = json.NewDecoder(response.Body).Decode(&rawData)
 
-    [3, 8, 9, 7, 6] -> [6, 3, 8, 9, 7]
-    [6, 3, 8, 9, 7] -> [7, 6, 3, 8, 9]
-    [7, 6, 3, 8, 9] -> [9, 7, 6, 3, 8]
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, nil
+	}
 
-Другой пример:
+	var results [][]int
+	// parse array and run solution
+	for _, data := range rawData {
+		rawArray := reflect.ValueOf(data[0])
+		rawK := reflect.ValueOf(data[1])
 
-    A = [1, 2, 3, 4]
-    K = 4
+		K := int(rawK.Float())
+		array := make([]int, rawArray.Len())
 
-результат [1, 2, 3, 4]
+		for i := 0; i < rawArray.Len(); i++ {
+			array[i] = int(rawArray.Index(i).Interface().(float64))
+		}
 
-Условия:
+		results = append(results, Solution(array, K))
+	}
 
-N и K целые числа в диапазоне [0..100];
-каждый элемент массива A целые числа в диапазоне [−1,000..1,000].
-*/
+	resolution := Resolution{
+		UserName: "kmisha",
+		Task:     s.TaskName,
+		Results: &Results{
+			Payload: rawData,
+			Results: results,
+		},
+	}
+
+	// send POST request
+	body, _ := json.Marshal(resolution)
+	postResponse, error := http.Post(s.CheckHost, "application/json", bytes.NewReader(body))
+
+	if error != nil {
+		log.Fatalf("Fail to parse data: %q", error)
+		return failedResolution, error
+	}
+
+	var resolutionResults ResolutionResult
+	json.NewDecoder(postResponse.Body).Decode(&resolutionResults)
+
+	return resolutionResults, nil
+}
 
 func Solution(A []int, K int) []int {
 	amount := len(A)
