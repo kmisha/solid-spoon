@@ -39,9 +39,14 @@ func solveTask(w http.ResponseWriter, r *http.Request) {
 	task := chi.URLParam(r, "taskId")
 	log.Printf("got taks %s", task)
 	solver := selectSover(task)
-	res, _ := solver.SolveTask()
+	ch := make(chan solutions.ResolutionResult)
 
-	data, _ := json.Marshal(res)
+	go func() {
+		r, _ := solver.SolveTask()
+		ch <- r
+	}()
+
+	data, _ := json.Marshal(<-ch)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
 }
