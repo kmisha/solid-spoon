@@ -28,38 +28,40 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/task/{taskId}", getTask)
+	r.Get("/task/{taskId}", solveTask)
 	r.Get("/tasks", solveAllTasks)
 
 	log.Print("Start server at 3000 port")
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
 
-func getTask(w http.ResponseWriter, r *http.Request) {
+func solveTask(w http.ResponseWriter, r *http.Request) {
 	task := chi.URLParam(r, "taskId")
 	log.Printf("got taks %s", task)
+	solver := selectSover(task)
+	res, _ := solver.SolveTask()
 
-	selectSover(task)(task, w)
-}
-
-func selectSover(task string) func(task string, w http.ResponseWriter) {
-	switch task {
-	case ROTATE:
-		return checkRevert
-	case WEIRD_ARRAY:
-		return checkWeirdArray
-	case CHECK_SEQ:
-		return checkCheckSequence
-	case SEQUENCE:
-		return checkSequence
-	}
-
-	return checkRevert
+	data, _ := json.Marshal(res)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 func solveAllTasks(w http.ResponseWriter, r *http.Request) {
 	tasks := []string{ROTATE, WEIRD_ARRAY, CHECK_SEQ, SEQUENCE}
 	var results []solutions.ResolutionResult
+
+	for _, t := range tasks {
+		res, _ := selectSover(t).SolveTask()
+		results = append(results, res)
+	}
+
+	// write result
+	raw, _ := json.Marshal(results)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(raw)
+}
+
+func selectSover(t string) solutions.TaskSolution {
 	rotateSolver := rotate.RotateSolution{
 		TaskName:   ROTATE,
 		DataSource: TASKS_HOST + ROTATE,
@@ -84,78 +86,16 @@ func solveAllTasks(w http.ResponseWriter, r *http.Request) {
 		CheckHost:  SOLUTION_HOST,
 	}
 
-	for _, t := range tasks {
-		var solver solutions.TaskSolution
-		switch t {
-		case ROTATE:
-			solver = &rotateSolver
-		case WEIRD_ARRAY:
-			solver = &waidArraySolver
-		case CHECK_SEQ:
-			solver = &checkSequenceSolver
-		case SEQUENCE:
-			solver = &sequenseSolver
-		}
-
-		res, _ := solver.SolveTask()
-		results = append(results, res)
+	switch t {
+	case ROTATE:
+		return &rotateSolver
+	case WEIRD_ARRAY:
+		return &waidArraySolver
+	case CHECK_SEQ:
+		return &checkSequenceSolver
+	case SEQUENCE:
+		return &sequenseSolver
+	default:
+		return &rotateSolver
 	}
-
-	// write result
-	raw, _ := json.Marshal(results)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(raw)
-}
-
-func checkRevert(task string, w http.ResponseWriter) {
-	solver := rotate.RotateSolution{
-		TaskName:   ROTATE,
-		DataSource: TASKS_HOST + ROTATE,
-		CheckHost:  SOLUTION_HOST,
-	}
-
-	resolutionResults, _ := solver.SolveTask()
-	data, _ := json.Marshal(resolutionResults)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func checkWeirdArray(task string, w http.ResponseWriter) {
-	solver := weirdarray.WeirdArraySolution{
-		TaskName:   WEIRD_ARRAY,
-		DataSource: TASKS_HOST + WEIRD_ARRAY,
-		CheckHost:  SOLUTION_HOST,
-	}
-
-	resolutionResults, _ := solver.SolveTask()
-
-	jData, _ := json.Marshal(resolutionResults)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jData)
-}
-
-func checkCheckSequence(task string, w http.ResponseWriter) {
-	solver := checksequence.CheckSequenceSolution{
-		TaskName:   CHECK_SEQ,
-		DataSource: TASKS_HOST + CHECK_SEQ,
-		CheckHost:  SOLUTION_HOST,
-	}
-
-	resolutionResults, _ := solver.SolveTask()
-	data, _ := json.Marshal(resolutionResults)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func checkSequence(task string, w http.ResponseWriter) {
-	solver := sequence.SequenceSolution{
-		TaskName:   SEQUENCE,
-		DataSource: TASKS_HOST + SEQUENCE,
-		CheckHost:  SOLUTION_HOST,
-	}
-
-	resolutionResults, _ := solver.SolveTask()
-	data, _ := json.Marshal(resolutionResults)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
 }
